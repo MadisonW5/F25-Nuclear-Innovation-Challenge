@@ -3,9 +3,11 @@
 import cv2
 from ultralytics import YOLO
 import math
+import winsound #for alarm
+import time
 
 # Load the model
-yolo = YOLO(r"C:\Users\snail\OneDrive\Documents\GitHub\F25-Nuclear-Innovation-Challenge\runs\detect\train3\weights\best.pt")# Paste in path to your trained model if you have one
+yolo = YOLO(r"runs\detect\train5\weights\best.pt")# Paste in path to your trained model if you have one
 #models are locate in runs/detect/train/weights folder
 
 
@@ -109,20 +111,15 @@ def is_moving(result, target_class_name, dist_thresh_px):
     prev_flask_centre = None
     return False
 
-        
-
-
-
-    
-
-
-
+danger_detected = {"intruder": False, "leak": False}
+last_alert_time = {"intruder": 0, "leak": 0}
+alert_duration = 3
 
 while True:
     ret, frame = videoCap.read()
     if not ret:
         continue
-    results = yolo.track(frame, stream=True)
+    results = yolo.track(frame, persist=True) #persist = true tracks the iage even when it disppears for a small amount of time
 
 
     for result in results:
@@ -144,14 +141,69 @@ while True:
                 # get the class name
                 class_name = classes_names[cls]
 
+                if class_name == "leak":
+                    if not danger_detected["leak"]:
+                        danger_detected["leak"] = True
+                        print("LEAK")
+                        cv2.putText(frame, "LEAK DETECTED!",
+                                (20, 50), cv2.FONT_HERSHEY_SIMPLEX, 1.2, (0, 0, 255), 3)
+                        cv2.putText(frame, "FOLLOW THE ERAP",
+                                (20, 100), cv2.FONT_HERSHEY_SIMPLEX, 1.2, (0, 0, 255), 3)
+                        last_alert_time["leak"] = time.time() #get the current time
+                        winsound.Beep(1000, 700) #beeping noise
+
+                elif class_name == "intruder":
+                    if not danger_detected["intruder"]:
+                        danger_detected["intruder"] = True
+                        print("INTRUDER: CONTACT POLICE (1-888-310-1122)")
+                        cv2.putText(frame, "INTRUDER DETECTED!",
+                            (20, 50), cv2.FONT_HERSHEY_SIMPLEX, 1.2, (0, 0, 255), 3)
+                        cv2.putText(frame, "CONTACT POLICE",
+                            (20, 100), cv2.FONT_HERSHEY_SIMPLEX, 1.2, (0, 0, 255), 3)
+                        cv2.putText(frame, "(1-888-310-1122)",
+                            (20, 150), cv2.FONT_HERSHEY_SIMPLEX, 1.2, (0, 0, 255), 3)
+                        last_alert_time["intruder"] = time.time() #get the current time
+                        winsound.Beep(1000, 700) #beeping noise
+
+                elif class_name == "readyfortransport" and not (danger_detected["intruder"] and danger_detected["leak"]):
+                    print("Ready for transport!")
+                    cv2.putText(frame, "Ready for transport!",
+                            (20, 300), cv2.FONT_HERSHEY_SIMPLEX, 1.2, (0, 255, 0), 3)
+
+                if danger_detected["leak"] == True and time.time()-last_alert_time["leak"]<alert_duration:
+                    print("LEAK")
+                    cv2.putText(frame, "LEAK DETECTED!",
+                        (20, 50), cv2.FONT_HERSHEY_SIMPLEX, 1.2, (0, 0, 255), 3)
+                    cv2.putText(frame, "FOLLOW THE ERAP",
+                        (20, 100), cv2.FONT_HERSHEY_SIMPLEX, 1.2, (0, 0, 255), 3)
+                
+                elif danger_detected["intruder"] == True and time.time()-last_alert_time["intruder"]<alert_duration:
+                    print("INTRUDER: CONTACT POLICE (1-888-310-1122)")
+                    cv2.putText(frame, "INTRUDER DETECTED!",
+                        (20, 50), cv2.FONT_HERSHEY_SIMPLEX, 1.2, (0, 0, 255), 3)
+                    cv2.putText(frame, "CONTACT POLICE",
+                        (20, 100), cv2.FONT_HERSHEY_SIMPLEX, 1.2, (0, 0, 255), 3)
+                    cv2.putText(frame, "(1-888-310-1122)",
+                        (20, 150), cv2.FONT_HERSHEY_SIMPLEX, 1.2, (0, 0, 255), 3)
+                    
+                else:
+                    danger_detected["leak"] = False
+                    danger_detected["intruder"] = False
+
                 # get the respective colour
-                colour = (0, 255, 0)
+                colour = (0, 255, 0) #green
 
-                # draw the rectangle
-                cv2.rectangle(frame, (x1, y1), (x2, y2), colour, 2)
-
+                match class_name:
+                    case "intruder" | "leak": #messahe for intruder or leak is in red text
+                        # draw the rectangle
+                        cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 0, 255), 2) #red box
+                        cv2.putText(frame, f'{classes_names[int(box.cls[0])]} {box.conf[0]:.2f}', (x1, y1), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
+                    
+                    case _:
+                        # draw the rectangle
+                        cv2.rectangle(frame, (x1, y1), (x2, y2), colour, 2)
                     # put the class name and confidence on the image
-                cv2.putText(frame, f'{classes_names[int(box.cls[0])]} {box.conf[0]:.2f}', (x1, y1), cv2.FONT_HERSHEY_SIMPLEX, 1, colour, 2)
+                        cv2.putText(frame, f'{classes_names[int(box.cls[0])]} {box.conf[0]:.2f}', (x1, y1), cv2.FONT_HERSHEY_SIMPLEX, 1, colour, 2)
                 
     # show the image
     cv2.imshow('frame', frame)

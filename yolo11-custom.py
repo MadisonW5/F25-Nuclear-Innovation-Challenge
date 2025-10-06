@@ -5,7 +5,7 @@ import cv2
 
 
 #path to your data.yaml file
-training_set = r"C:\Users\snail\Downloads\My First Project.v3i.yolov11\data.yaml"
+training_set = r"C:\Users\snail\Downloads\My First Project.v5i.yolov11\data.yaml"
 
 
 def main():
